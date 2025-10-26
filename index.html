@@ -1,63 +1,32 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Регистрация — WebApp</title>
+  <meta charset="UTF-8">
+  <title>Phone Input</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background:#0f1720; color:#fff; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-    .card{ background:#111827; padding:20px; border-radius:12px; width:92%; max-width:420px; box-shadow:0 6px 30px rgba(0,0,0,0.5); text-align:center; }
-    input{ width:100%; padding:12px; margin:8px 0; border-radius:8px; border:none; outline:none; text-align:center; background:#0b1220; color:#fff; }
-    button{ width:100%; padding:12px; margin-top:8px; border-radius:8px; border:none; cursor:pointer; background:#0ea5a3; color:#042024; font-weight:600; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { width: 100%; padding: 8px; margin-top: 10px; }
+    button { margin-top: 15px; padding: 10px; width: 100%; background: #0088cc; color: white; border: none; }
   </style>
 </head>
 <body>
-  <div class="card" id="step-phone">
-    <h2>Ввести номер</h2>
-    <input id="phone" placeholder="+380XXXXXXXXX" type="tel" />
-    <button id="sendPhone">Отправить номер боту</button>
-    <p id="info" style="color:#9ca3af;"></p>
-  </div>
-
-  <div class="card" id="step-code" style="display:none;">
-    <h2>Ввести код</h2>
-    <input id="code" placeholder="Код из Telegram" type="text" />
-    <button id="sendCode">Отправить код</button>
-    <p id="info2" style="color:#9ca3af;"></p>
-  </div>
+  <h2>Enter your phone number</h2>
+  <input type="tel" id="phone" placeholder="+1234567890">
+  <button id="sendBtn">Send</button>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    try { tg.expand(); } catch(e){}
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
 
-    const phoneEl = document.getElementById('phone');
-    const sendPhoneBtn = document.getElementById('sendPhone');
-    const codeEl = document.getElementById('code');
-    const sendCodeBtn = document.getElementById('sendCode');
-    const info = document.getElementById('info');
-    const info2 = document.getElementById('info2');
-
-    sendPhoneBtn.addEventListener('click', () => {
-      const phone = phoneEl.value.trim();
-      if (!phone.startsWith('+') || phone.length < 8) {
-        alert('Введите корректный номер в международном формате, например +380XXXXXXXXX');
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.addEventListener('click', () => {
+      const phone = document.getElementById('phone').value.trim();
+      if (!phone) {
+        Telegram.WebApp.showAlert('Please enter a phone number');
         return;
       }
-      // отправляем в бот: step=phone
-      tg.sendData(JSON.stringify({ step: "phone", phone }));
-      info.textContent = 'Номер отправлен боту. Проверьте чат с ботом — вам придёт код.';
-      // переходим на ввод кода
-      document.getElementById('step-phone').style.display = 'none';
-      document.getElementById('step-code').style.display = 'block';
-    });
-
-    sendCodeBtn.addEventListener('click', () => {
-      const code = codeEl.value.trim();
-      if (!code) { alert('Введите код'); return; }
-      tg.sendData(JSON.stringify({ step: "code", code }));
-      info2.textContent = 'Код отправлен боту. Подождите ответ в чате.';
-      sendCodeBtn.disabled = true;
+      Telegram.WebApp.sendData(JSON.stringify({ phone: phone }));
     });
   </script>
 </body>
